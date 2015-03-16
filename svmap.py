@@ -327,12 +327,17 @@ if __name__ == '__main__':
                       default=False,
                   help="Scan the SRV records for SIP on the destination domain name." \
                        "The targets have to be domain names - example.org domain1.com")
-    parser.add_option('--fromname',dest="fromname", default="sipvicious",
+    parser.add_option('--fromname',dest="fromname", default="random",
                       help="specify a name for the from header")
+    parser.add_option("--concise", dest="is_concise", action="store_true", default=False, 
+                    help="Force concise output")
     (options, args) = parser.parse_args()        
     from libs.svhelper import getRange, scanfromfile, scanlist, scanrandom, getranges,\
         ip4range, resumeFromIP, scanfromdb, dbexists, getTargetFromSRV
     exportpath = None
+    if options.fromname is None:
+        import string
+        options.fromname = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
     if options.resume is not None:
         exportpath = os.path.join('.sipvicious',__prog__,options.resume)
         if os.path.exists(os.path.join(exportpath,'closed')):
@@ -530,17 +535,21 @@ if __name__ == '__main__':
         lenres = len(sipvicious.resultua)
         if lenres > 0:
             logging.info("we have %s devices" % lenres)
-            if (lenres < 400 and options.save is not None) or options.save is None:
-                from libs.pptable import indent,wrap_onspace
-                width = 60
-                labels = ('SIP Device','User Agent','Fingerprint')
-                rows = list()
-                for k in sipvicious.resultua.keys():
-                    rows.append((k,sipvicious.resultua[k],sipvicious.resultfp[k]))
-                print indent([labels]+rows,hasHeader=True,
-                    prefix='| ', postfix=' |',wrapfunc=lambda x: wrap_onspace(x,width))
+            if not options.is_concise:
+                if (lenres < 400 and options.save is not None) or options.save is None:
+                    from libs.pptable import indent,wrap_onspace
+                    width = 60
+                    labels = ('SIP Device','User Agent','Fingerprint')
+                    rows = list()
+                    for k in sipvicious.resultua.keys():
+                        rows.append((k,sipvicious.resultua[k],sipvicious.resultfp[k]))
+                    print indent([labels]+rows,hasHeader=True,
+                        prefix='| ', postfix=' |',wrapfunc=lambda x: wrap_onspace(x,width))
+                else:
+                    logging.warn("too many to print - use svreport for this")
             else:
-                logging.warn("too many to print - use svreport for this")
+                for k in sipvicious.resultua.keys():
+                    print str(k) + "|"  + str(sipvicious.resultua[k])
         else:
             logging.warn("found nothing")
     end_time = datetime.now()
